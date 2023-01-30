@@ -1,7 +1,6 @@
 const express = require("express");
 const app = express();
 const cors = require("cors");
-const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const port = process.env.PORT || 5000;
@@ -42,24 +41,23 @@ async function dbConnect() {
 dbConnect();
 
 const UsersData = client.db("power-app").collection("userall");
+const UsersDataFind = client.db("power-app").collection("userdata");
 const UsersBill = client.db("power-app").collection("bill");
 
 app.put("/api/registration", async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash(password, salt);
-
+  
     const filter = { email: email };
     const options = { upsert: true };
     const updateDoc = {
       $set: {
         name: name,
         email: email,
-        password: hash,
+        password: password
       },
     };
-    const result = await UsersData.updateOne(filter, updateDoc, options);
+    const result = await UsersDataFind.updateOne(filter, updateDoc, options);
     if (result) {
       res.send({
         success: true,
@@ -76,24 +74,31 @@ app.put("/api/registration", async (req, res) => {
 app.post("/api/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-    const filter = await UsersData.findOne({ email: email });
-    if (await bcrypt.compare(password, filter.password)) {
-      // Login successful
-    } else {
-      // Login failed
-    }
+    const filter = await UsersDataFind.findOne({ email: email });
     const data = {
       name: filter.name,
       email: filter.email,
     };
-
-    if (filter) {
-      res.send({
-        success: true,
-        message: "User Login Successful",
-        userinfo: data,
+    if (password !== filter.password) {
+      // Login successful
+    return  res.send({
+        success: false,
+        message: "Password Not marched",
+        
       });
+    
+    } else{
+      return  res.send({
+        success: true,
+        message: "Login Successfull",
+        userinfo:data
+        
+      });
+
     }
+    
+
+    
   } catch (error) {
     res.send({
       success: false,
@@ -205,7 +210,7 @@ app.get("/jwt", async (req, res) => {
     const email = req.query.email;
 
     const query = { email: email };
-    const user = await UsersData.findOne(query);
+    const user = await UsersDataFind.findOne(query);
 
     if (user) {
       const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, {
